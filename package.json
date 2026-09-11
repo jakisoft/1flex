@@ -1,0 +1,35 @@
+{
+  "name": "1flex-scraper",
+  "version": "1.0.0",
+  "description": "Comprehensive scraper, reverse-engineered API client, and CLI for 1flex.org",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "health": "node main.js --health",
+    "trending": "node main.js --trending",
+    "movies": "node main.js --movies",
+    "tv": "node main.js --tv",
+    "sports": "node main.js --sports",
+    "live-tv": "node main.js --live-tv --country us",
+    "games": "node main.js --games",
+    "torrent": "node main.js --torrent batman"
+  },
+  "keywords": [
+    "1flex",
+    "scraper",
+    "streaming",
+    "movies",
+    "tv-shows",
+    "live-tv",
+    "sports",
+    "games",
+    "torrents",
+    "api",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
