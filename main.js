@@ -35,6 +35,8 @@ Commands:
   --search <query>          Search across movies, TV series, actors, and directors
   --views <id>              Check views count for a movie or TV episode
   --stream <id>             Scrape embed streaming sources from all 8 providers
+  --m3u8 <id>               Scrape direct M3U8 & MP4 video streams from embed players
+  --resolve-embed <url>     Resolve and scrape direct video streams from an embed URL
   --providers               List active dynamic video embed providers
   --sports                  Scrape live sports matches, fixtures, and events
   --sports-stream           Scrape live sports stream feeds
@@ -68,6 +70,8 @@ Options:
   --page <num>              Results page number (default: 1)
   --inc                     Increment view count when using --views
   --title <str>             Media title (used for subtitle lookups)
+  --resolve                 Resolve direct M3U8 video streams when using --stream
+  --validate                Validate direct stream URLs to check if active online
   --save <file>             Save final JSON result to file
   --quiet, -q               Suppress progress logs from stderr
   --help                    Show this help message
@@ -101,6 +105,9 @@ function parseArgs() {
     inc: false,
     query: '',
     title: '',
+    resolve: false,
+    validate: false,
+    embedUrl: null,
     save: null,
     quiet: false
   };
@@ -174,6 +181,20 @@ function parseArgs() {
       if (args[i + 1] && !args[i + 1].startsWith('-')) {
         options.id = args[++i];
       }
+    } else if (arg === '--m3u8') {
+      options.action = 'm3u8';
+      if (args[i + 1] && !args[i + 1].startsWith('-')) {
+        options.id = args[++i];
+      }
+    } else if (arg === '--resolve-embed' || arg === '--embed') {
+      options.action = 'resolve-embed';
+      if (args[i + 1] && !args[i + 1].startsWith('-')) {
+        options.embedUrl = args[++i];
+      }
+    } else if (arg === '--resolve') {
+      options.resolve = true;
+    } else if (arg === '--validate') {
+      options.validate = true;
     } else if (arg === '--providers') {
       options.action = 'providers';
     } else if (arg === '--sports') {
@@ -448,8 +469,56 @@ async function main() {
           type: options.type,
           season: options.season,
           episode: options.episode,
-          title: options.title
+          title: options.title,
+          resolve: options.resolve
         });
+        if (options.validate && result.directStreams && result.directStreams.length > 0) {
+          log('Validating resolved direct streams...', options.quiet);
+          for (const s of result.directStreams) {
+            const val = await client.embedResolver.validateStream(s.url, s.headers);
+            s.status = val.status;
+            s.active = val.active;
+            s.latencyMs = val.latencyMs;
+          }
+        }
+        break;
+      }
+
+      case 'm3u8': {
+        if (!options.id) throw new Error('--m3u8 requires a media ID');
+        log(`Scraping direct M3U8/HLS backend streams for ID ${options.id}...`, options.quiet);
+        result = await client.resolveStreams({
+          id: options.id,
+          type: options.type,
+          season: options.season,
+          episode: options.episode
+        });
+        if (options.validate && result.streams && result.streams.length > 0) {
+          log('Validating resolved direct streams...', options.quiet);
+          for (const s of result.streams) {
+            const val = await client.embedResolver.validateStream(s.url, s.headers);
+            s.status = val.status;
+            s.active = val.active;
+            s.latencyMs = val.latencyMs;
+          }
+        }
+        break;
+      }
+
+      case 'resolve-embed': {
+        const targetUrl = options.embedUrl || options.query;
+        if (!targetUrl) throw new Error('--resolve-embed requires an embed video URL');
+        log(`Scraping and resolving direct video streams from embed: ${targetUrl}...`, options.quiet);
+        result = await client.resolveEmbed(targetUrl);
+        if (options.validate && result.streams && result.streams.length > 0) {
+          log('Validating resolved direct streams...', options.quiet);
+          for (const s of result.streams) {
+            const val = await client.embedResolver.validateStream(s.url, s.headers);
+            s.status = val.status;
+            s.active = val.active;
+            s.latencyMs = val.latencyMs;
+          }
+        }
         break;
       }
 

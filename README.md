@@ -6,7 +6,8 @@ A high-performance Node.js scraper, reverse-engineered API client, and CLI for `
 
 - **Media Catalogs**: Scrape trending, popular, top rated, upcoming, and now playing movies and TV shows from 1Flex backend (`db.1flex.org`).
 - **Complete Media Details**: Scrape full metadata, cast & crew credits, official trailers/videos, posters, backdrops, and seasons/episodes.
-- **8 Dynamic Video Embed Providers**: Resolves streaming links for all 8 providers (`MAIN_1` Viduki, `MAIN_2` Vidy, `MAIN_3` Vidfast, `MAIN_4` Vidlink, `MAIN_5` Vidrock, `MAIN_6` Vidzee, `MULTILANGUAGE`, `PREMIUM_EMBEDS`), plus 9 Vidfast fallback mirrors and Subscene subtitle lookups.
+- **8 Dynamic Video Embed Providers & Direct M3U8 Decrypter**: Resolves streaming links for all 8 providers (`MAIN_1` Viduki, `MAIN_2` Vidy, `MAIN_3` Vidfast, `MAIN_4` Vidlink, `MAIN_5` Vidrock, `MAIN_6` Vidzee, `MULTILANGUAGE`, `PREMIUM_EMBEDS`), plus decrypts direct HLS `.m3u8` backend streams from embed players via native AES-GCM and WebAssembly decryption engines.
+- **Direct Video Stream Extractor (`lib/embed.js`)**: Standalone module that scrapes and reverse-engineers third-party video embed players (Vidrock, Vidzee, generic iframes, JWPlayer, packed JS) to extract direct `.m3u8` playlists and `.mp4` video files.
 - **Live Sports Engine**: Scrape live matches, fixtures, today matches, all events, sports categories, and live stream embed feeds (`admin`, `echo`, `delta`, `golf`) with team badges and event posters.
 - **Global Live TV Scraper**: Scrape global television channels across countries, parse M3U playlists, and extract direct HLS `.m3u8` stream URLs.
 - **Web Games Catalog**: Scrape Selenite browser games library with directory links, tags, thumbnails, and direct playable URLs.
@@ -30,7 +31,11 @@ node main.js --tv --filter popular
 
 node main.js --details 550 --type movie
 
-node main.js --stream 550 --type movie
+node main.js --m3u8 550
+
+node main.js --stream 550 --type movie --resolve
+
+node main.js --resolve-embed "https://vidrock.ru/movie/550" --validate
 
 node main.js --season 1 --id 66732
 
@@ -65,7 +70,9 @@ node main.js --search "Interstellar" --type movie
 | `--discover` | Discover content by genre, language, year, or sort order |
 | `--search <query>` | Search catalog (`--type multi\|enhanced\|movie\|tv\|person`) |
 | `--views <id>` | Retrieve or increment views count (`--inc`) |
-| `--stream <id>` | Scrape resolved video embed stream URLs for all 8 providers |
+| `--stream <id>` | Scrape resolved video embed stream URLs for all 8 providers (`--resolve` to decrypt M3U8) |
+| `--m3u8 <id>` | Scrape and decrypt direct M3U8 & MP4 video streams from embed players |
+| `--resolve-embed <url>` | Scrape and resolve direct video streams from an embed URL |
 | `--providers` | Fetch active dynamic embed providers |
 | `--sports` | Scrape sports events (`--filter live\|today\|all\|categories`) |
 | `--sports-stream` | Scrape live sports stream feed (`--source <src> --match-id <id>`) |
@@ -82,15 +89,21 @@ node main.js --search "Interstellar" --type movie
 ## Programmatic API
 
 ```javascript
-import { OneFlex } from './lib/1flex.js';
+import { OneFlex, EmbedResolver } from './lib/1flex.js';
 
 const client = new OneFlex();
 
 const trending = await client.getTrending('all', 'day');
 
-const streams = await client.getStreamSources({
+const directM3u8 = await client.resolveStreams({
   id: 550,
   type: 'movie'
+});
+
+const streams = await client.getStreamSources({
+  id: 550,
+  type: 'movie',
+  resolve: true
 });
 
 const matches = await client.getMatches('live');
